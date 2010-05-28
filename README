@@ -1,0 +1,5 @@
+miniredis is an extremely minimal server that supports exactly enough redis
+to power splined.  It's currently used in the development version of the
+Kiln backend when Kiln runs on Windows computers.  While I'm happy to accept
+patches making this closer to a real Redis alternative, I currently have
+no plans to implement the entire Redis suite.
