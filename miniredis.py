@@ -116,6 +116,18 @@ class MiniRedis(threading.Thread):
         self.log(client, 'LPOP %s -> %s' % (key, data))
         return data
 
+    def handle_lrange(self, client, key, low, high):
+        low, high = int(low), int(high)
+        if low == 0 and high == -1:
+            high = None
+        if key not in client.table:
+            return EMPTY_LIST
+        if not isinstance(client.table[key], list):
+            return BAD_VALUE
+        self.log(client, 'LRANGE %s %s %s -> %s' % (key, low, high, client.table[key][low:high]))
+        return client.table[key][low:high]
+
+
     def handle_keys(self, client, pattern):
         r = re.compile(pattern.replace('*', '.*'))
         self.log(client, 'KEYS %s' % pattern)
@@ -249,9 +261,9 @@ class MiniRedis(threading.Thread):
             client.wfile.write('$' + str(len(o)) + nl)
             client.wfile.write(o + nl)
         elif isinstance(o, list):
-            client.wfile.write('*' + len(o))
+            client.wfile.write('*' + str(len(o)) + nl)
             for val in o:
-                self.dump(client, val)
+                self.dump(client, str(val))
         elif isinstance(o, RedisError):
             client.wfile.write('-ERR %s\r\n' % o.message)
         else:
