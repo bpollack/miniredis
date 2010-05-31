@@ -1,7 +1,9 @@
 #!/usr/bin/env python
 
 import getopt
+import os
 import re
+import pickle
 import select
 import socket
 import sys
@@ -38,7 +40,7 @@ class RedisClient(object):
         self.table = None
 
 class MiniRedis(threading.Thread):
-    def __init__(self, host='127.0.0.1', port=56784, logging=False):
+    def __init__(self, host='127.0.0.1', port=56784, logging=False, db_file=None):
         super(MiniRedis, self).__init__()
         self.host = host
         self.port = port
@@ -46,16 +48,32 @@ class MiniRedis(threading.Thread):
         self.halt = True
         self.tables = {}
         self.clients = {}
+        self.db_file = db_file
+
+        self.load()
 
     def log(self, client, s):
         if self.logging:
-            print '%s:%s: %s' % (client.socket.getpeername() + (s,))
+            who = '%s:%s' % client.socket.getpeername() if client else 'SERVER'
+            print '%s: %s' % (who, s)
 
     def select(self, client, db):
         if db not in self.tables:
             self.tables[db] = {}
         client.db = db
         client.table = self.tables[db]
+
+    def save(self):
+        if self.db_file:
+            with open(self.db_file, 'wb') as f:
+                pickle.dump(self.tables, f, pickle.HIGHEST_PROTOCOL)
+                self.log(None, 'saved database to "%s"' % self.db_file)
+
+    def load(self):
+        if self.db_file and os.path.lexists(self.db_file):
+            with open(self.db_file, 'rb') as f:
+                self.tables = pickle.load(f)
+                self.log(None, 'loaded database from file "%s"' % self.db_file)
 
     def handle_set(self, client, key, data):
         client.table[key] = data
@@ -139,6 +157,11 @@ class MiniRedis(threading.Thread):
     def handle_shutdown(self, client):
         self.log(client, 'SHUTDOWN')
         self.halt = True
+        return True
+
+    def handle_save(self, client):
+        self.save()
+        self.log(client, 'SAVE')
         return True
 
     def unwrap_set(self, client, line):
@@ -279,7 +302,7 @@ def main(args):
         elif o == '-l':
             logging = True
     print 'Launching MiniRedis on %s:%s' % (host, port)
-    m = MiniRedis(host=host, port=port, logging=logging)
+    m = MiniRedis(host=host, port=port, logging=logging, db_file='miniredis.db')
     m.start()
     m.join()
     print 'Stopped'
