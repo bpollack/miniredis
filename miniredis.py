@@ -261,7 +261,7 @@ class MiniRedis(threading.Thread):
                         self.handle(self.clients[sock])
                     except Exception, e:
                         self.log(client, 'exception: %s' % e)
-                        self.quit(client)
+                        self.handle_quit(client)
         for client_socket in self.clients.iterkeys():
             client_socket.close()
         self.clients.clear()
