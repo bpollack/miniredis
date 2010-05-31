@@ -38,7 +38,7 @@ class RedisClient(object):
         self.table = None
 
 class MiniRedis(threading.Thread):
-    def __init__(self, host='127.0.0.1', port=56784, logging=False, db_file=None):
+    def __init__(self, host='127.0.0.1', port=6379, logging=False, db_file=None):
         super(MiniRedis, self).__init__()
         self.host = host
         self.port = port
@@ -302,8 +302,8 @@ class MiniRedis(threading.Thread):
         server = None
 
 def main(args):
-    host, port, logging = '127.0.0.1', 56784, True
-    opts, args = getopt.getopt(args, 'h:p:l')
+    host, port, logging, db_file = '127.0.0.1', 6379, True, None
+    opts, args = getopt.getopt(args, 'h:p:d:l')
     for o, a in opts:
         if o == '-h':
             host = a
@@ -311,8 +311,10 @@ def main(args):
             port = int(a)
         elif o == '-l':
             logging = True
+        elif o == '-d':
+            db_file = os.path.abspath(a)
     print 'Launching MiniRedis on %s:%s' % (host, port)
-    m = MiniRedis(host=host, port=port, logging=logging, db_file='miniredis.db')
+    m = MiniRedis(host=host, port=port, logging=logging, db_file=db_file)
     m.start()
     m.join()
     print 'Stopped'
