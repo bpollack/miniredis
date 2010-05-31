@@ -106,6 +106,9 @@ class MiniRedis(threading.Thread):
         self.log(client, 'KEYS %s' % pattern)
         return ' '.join(k for k in client.table.keys() if r.search(k))
 
+    def handle_incr(self, client, key):
+        return self.handle_incrby(client, key, 1)
+
     def handle_incrby(self, client, key, by):
         try:
             client.table[key] = int(client.table[key])
