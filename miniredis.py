@@ -16,10 +16,6 @@ class RedisError(object):
     def __repr__(self):
         return '<RedisError(%s)>' % self.message
 
-class RedisBadValueError(RedisError):
-    def __init__(self):
-        super(RedisBadValueError, self).__init__('Operation against a key holding the wrong kind of value')
-
 class RedisConstant(object):
     def __init__(self, type):
         self.type = type
@@ -28,7 +24,8 @@ class RedisConstant(object):
         return '<RedisConstant(%s)>' % self.type
 
 EMPTY_SCALAR = RedisConstant('EmptyScalar')
-EMPTY_ARRAY = RedisConstant('EmptyArray')
+EMPTY_LIST = RedisConstant('EmptyList')
+BAD_VALUE = RedisError('Operation against a key holding the wrong kind of value')
 
 
 class RedisClient(object):
@@ -83,7 +80,7 @@ class MiniRedis(threading.Thread):
     def handle_get(self, client, key):
         data = client.table.get(key, None)
         if isinstance(data, list):
-            return RedisBadValueError()
+            return BAD_VALUE
         if data != None:
             data = str(data)
         else:
@@ -102,7 +99,7 @@ class MiniRedis(threading.Thread):
         if key not in client.table:
             client.table[key] = []
         elif not isinstance(client.table[key], list):
-            return RedisBadValueError()
+            return BAD_VALUE
         client.table[key].insert(0, data)
         self.log(client, 'LPUSH %s %s' % (key, data))
         return True
@@ -111,7 +108,7 @@ class MiniRedis(threading.Thread):
         if key not in client.table:
             return EMPTY_SCALAR
         if not isinstance(client.table[key], list):
-            return RedisBadValueError()
+            return BAD_VALUE
         if len(client.table[key]) > 0:
             data = client.table[key].pop()
         else:
@@ -244,7 +241,7 @@ class MiniRedis(threading.Thread):
             # Show nothing for a false return; that means be quiet
         elif o == EMPTY_SCALAR:
             client.wfile.write('$-1\r\n')
-        elif o == EMPTY_ARRAY:
+        elif o == EMPTY_LIST:
             client.wfile.write('*-1\r\n')
         elif isinstance(o, int):
             client.wfile.write(':' + str(o) + nl)
