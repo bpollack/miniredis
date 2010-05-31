@@ -47,42 +47,22 @@ class MiniRedis(threading.Thread):
         self.tables = {}
         self.clients = {}
 
-        self.wrappers = {'set': self.handle_set,
-                         'get': self.handle_get,
-                         'incr': self.handle_incr,
-                         'incrby': self.handle_incrby,
-                         'del': self.handle_del,
-                         'keys': self.handle_keys,
-                         'rpop': self.handle_rpop,
-                         'lpush': self.handle_lpush,
-                         'flushdb': self.handle_flushdb,
-                         'select': self.handle_select,
-                         'quit': self.handle_quit,
-                         'shutdown': self.handle_shutdown}
-
-        self.dispatch = {'set': self.set,
-                         'get': self.get,
-                         'incr': self.incr,
-                         'incrby': self.incr,
-                         'del': self.delete,
-                         'keys': self.keys,
-                         'rpop': self.rpop,
-                         'lpush': self.lpush,
-                         'flushdb': self.flushdb,
-                         'select': self.select,
-                         'quit': self.quit,
-                         'shutdown': self.shutdown}
-
     def log(self, client, s):
         if self.logging:
             print '%s:%s: %s' % (client.socket.getpeername() + (s,))
 
-    def set(self, client, key, data):
+    def select(self, client, db):
+        if db not in self.tables:
+            self.tables[db] = {}
+        client.db = db
+        client.table = self.tables[db]
+
+    def handle_set(self, client, key, data):
         client.table[key] = data
         self.log(client, 'SET %s -> %s' % (key, data))
         return True
 
-    def get(self, client, key):
+    def handle_get(self, client, key):
         data = client.table.get(key, None)
         if isinstance(data, list):
             return RedisBadValueError()
@@ -93,14 +73,14 @@ class MiniRedis(threading.Thread):
         self.log(client, 'GET %s -> %s' % (key, data))
         return data
 
-    def delete(self, client, key):
+    def handle_del(self, client, key):
         self.log(client, 'DEL %s' % key)
         if key not in client.table:
             return 0
         del client.table[key]
         return 1
 
-    def lpush(self, client, key, data):
+    def handle_lpush(self, client, key, data):
         if key not in client.table:
             client.table[key] = []
         elif not isinstance(client.table[key], list):
@@ -109,7 +89,7 @@ class MiniRedis(threading.Thread):
         self.log(client, 'LPUSH %s %s' % (key, data))
         return True
 
-    def rpop(self, client, key):
+    def handle_rpop(self, client, key):
         if key not in client.table:
             return EMPTY_SCALAR
         if not isinstance(client.table[key], list):
@@ -121,12 +101,12 @@ class MiniRedis(threading.Thread):
         self.log(client, 'LPOP %s -> %s' % (key, data))
         return data
 
-    def keys(self, client, pattern):
+    def handle_keys(self, client, pattern):
         r = re.compile(pattern.replace('*', '.*'))
         self.log(client, 'KEYS %s' % pattern)
         return ' '.join(k for k in client.table.keys() if r.search(k))
 
-    def incr(self, client, key, by=1):
+    def handle_incrby(self, client, key, by):
         try:
             client.table[key] = int(client.table[key])
             client.table[key] += int(by)
@@ -135,84 +115,77 @@ class MiniRedis(threading.Thread):
         self.log(client, 'INCRBY %s %s -> %s' % (key, by, client.table[key]))
         return client.table[key]
 
-    def flushdb(self, client):
+    def handle_flushdb(self, client):
         self.log(client, 'FLUSHDB')
         client.table.clear()
         return True
 
-    def select(self, client, db):
+    def handle_select(self, client, db):
         db = int(db)
-        if db not in self.tables:
-            self.tables[db] = {}
-        client.db = db
-        client.table = self.tables[db]
+        self.select(client, db)
         self.log(client, 'SELECT %s' % db)
         return True
 
-    def quit(self, client):
+    def handle_quit(self, client):
         self.log(client, 'QUIT')
         client.socket.shutdown(socket.SHUT_RDWR)
         client.socket.close()
         del self.clients[client.socket]
         return False
 
-    def shutdown(self, client):
+    def handle_shutdown(self, client):
         self.log(client, 'SHUTDOWN')
         self.halt = True
         return True
 
-    def handle_set(self, client, line):
+    def unwrap_set(self, client, line):
         key, length = line.split()
         data = client.rfile.read(int(length))
         client.rfile.read(2) # throw out newline
-        return self.set(key, client, data)
+        return self.handle_set(key, client, data)
 
-    def handle_get(self, client, line):
+    def unwrap_get(self, client, line):
         key = line.strip()
-        return self.get(client, key)
+        return self.handle_get(client, key)
 
-    def handle_del(self, client, line):
+    def unwrap_del(self, client, line):
         key = line.strip()
-        return self.delete(client, key)
+        return self.handle_del(client, key)
 
-    def handle_lpush(self, client, line):
+    def unwrap_lpush(self, client, line):
         key, length = line.split()
         data = client.rfile.read(int(length))
         client.rfile.read(2) # throw out newline
-        return self.lpush(client, key, data)
+        return self.handle_lpush(client, key, data)
 
-    def handle_rpop(self, client, line):
+    def unwrap_rpop(self, client, line):
         key = line.strip()
-        return self.rpop(client, key)
+        return self.handle_rpop(client, key)
 
-    def handle_keys(self, client, line):
+    def unwrap_keys(self, client, line):
         pattern = line.strip()
-        return self.keys(client, pattern)
+        return self.handle_keys(client, pattern)
 
-    def handle_incr(self, client, line):
-        key = line.strip()
-        return self.incr(client, key)
-
-    def handle_incrby(self, client, line):
+    def unwrap_incrby(self, client, line):
         key, by = line.split()
-        return self.incr(client, key, by)
+        return self.handle_incrby(client, key, by)
 
-    def handle_flushdb(self, client, line):
-        return self.flushdb(client)
+    def unwrap_flushdb(self, client, line):
+        return self.handle_flushdb(client)
 
-    def handle_select(self, client, line):
+    def unwrap_select(self, client, line):
         db = line.strip()
-        return self.select(client, db)
+        return self.handle_select(client, db)
 
-    def handle_quit(self, client, line):
-        return self.quit(client)
+    def unwrap_quit(self, client, line):
+        return self.handle_quit(client)
 
-    def handle_shutdown(self, client, line):
-        return self.shutdown(client)
+    def unwrap_shutdown(self, client, line):
+        return self.handle_shutdown(client)
 
     def handle_normal(self, client, line):
         command, _, rest = line.partition(' ')
-        return self.wrappers[command.strip().lower()](client, rest)
+        return getattr(self, 'unwrap_' + command.strip().lower())(client, rest)
 
     def handle_multibulk(self, client, line):
         items = int(line[1:].strip())
@@ -222,7 +195,7 @@ class MiniRedis(threading.Thread):
             args.append(client.rfile.read(length))
             client.rfile.read(2) # throw out newline
         command = args[0].lower()
-        return self.dispatch[command](client, *args[1:])
+        return getattr(self, 'handle_' + command)(client, *args[1:])
 
     def handle(self, client):
         line = client.rfile.readline()
