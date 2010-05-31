@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# Copyright (C) 2010 Benjamin Pollack.  All rights reserved.
 
 import getopt
 import os
