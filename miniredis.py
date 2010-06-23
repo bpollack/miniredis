@@ -53,7 +53,8 @@ class MiniRedis(threading.Thread):
     def log(self, client, s):
         if self.logging:
             who = '%s:%s' % client.socket.getpeername() if client else 'SERVER'
-            print '%s: %s' % (who, s)
+            sys.stdout.write('%s: %s\n' % (who, s))
+            sys.stdout.flush()
 
     def select(self, client, db):
         if db not in self.tables:
