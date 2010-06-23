@@ -178,7 +178,7 @@ class MiniRedis(threading.Thread):
         key, length = line.split()
         data = client.rfile.read(int(length))
         client.rfile.read(2) # throw out newline
-        return self.handle_set(key, client, data)
+        return self.handle_set(client, key, data)
 
     def unwrap_get(self, client, line):
         key = line.strip()
