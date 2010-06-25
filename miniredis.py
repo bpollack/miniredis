@@ -195,6 +195,10 @@ class MiniRedis(threading.Thread):
         client.rfile.read(2) # throw out newline
         return self.handle_lpush(client, key, data)
 
+    def unwrap_lrange(self, client, line):
+        key, low, high = line.split()
+        return self.handle_lrange(client, key, low, high)
+
     def unwrap_rpop(self, client, line):
         key = line.strip()
         return self.handle_rpop(client, key)
@@ -202,6 +206,10 @@ class MiniRedis(threading.Thread):
     def unwrap_keys(self, client, line):
         pattern = line.strip()
         return self.handle_keys(client, pattern)
+
+    def unwrap_incr(self, client, line):
+        key = line.strip()
+        return self.handle_incr(client, key)
 
     def unwrap_incrby(self, client, line):
         key, by = line.split()
@@ -216,6 +224,9 @@ class MiniRedis(threading.Thread):
 
     def unwrap_quit(self, client, line):
         return self.handle_quit(client)
+
+    def unwrap_save(self, client, line):
+        return self.handle_save(client)
 
     def unwrap_shutdown(self, client, line):
         return self.handle_shutdown(client)
