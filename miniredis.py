@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # Copyright (C) 2010 Benjamin Pollack.  All rights reserved.
 
+import datetime
 import getopt
 import os
 import re
@@ -53,7 +54,7 @@ class MiniRedis(threading.Thread):
     def log(self, client, s):
         if self.logging:
             who = '%s:%s' % client.socket.getpeername() if client else 'SERVER'
-            sys.stdout.write('%s: %s\n' % (who, s))
+            sys.stdout.write('%s - %s: %s\n' % (datetime.datetime.now(), who, s))
             sys.stdout.flush()
 
     def select(self, client, db):
