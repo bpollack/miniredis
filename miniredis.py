@@ -152,6 +152,12 @@ class MiniRedis(threading.Thread):
         client.table.clear()
         return True
 
+    def handle_flushall(self, client):
+        self.log(client, 'FLUSHALL')
+        for table in self.tables.itervalues():
+            table.clear()
+        return True
+
     def handle_select(self, client, db):
         db = int(db)
         self.select(client, db)
@@ -173,6 +179,11 @@ class MiniRedis(threading.Thread):
     def handle_save(self, client):
         self.save()
         self.log(client, 'SAVE')
+        return True
+
+    def handle_bgrewriteaof(self, client):
+        self.save()
+        self.log(client, 'BGREWRITEAOF')
         return True
 
     def unwrap_set(self, client, line):
