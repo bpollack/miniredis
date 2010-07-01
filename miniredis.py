@@ -296,7 +296,8 @@ def main(args):
     signal.signal(signal.SIGHUP, sighup)
 
     host, port, log_file, db_file = '127.0.0.1', 6379, None, None
-    opts, args = getopt.getopt(args, 'h:p:d:l:')
+    opts, args = getopt.getopt(args, 'h:p:d:l:f:')
+    pid_file = None
     for o, a in opts:
         if o == '-h':
             host = a
@@ -306,11 +307,18 @@ def main(args):
             log_file = os.path.abspath(a)
         elif o == '-d':
             db_file = os.path.abspath(a)
+        elif o == '-f':
+            pid_file = os.path.abspath(a)
+    if pid_file:
+        with open(pid_file, 'w') as f:
+            f.write('%s\n' % os.getpid())
     m = MiniRedis(host=host, port=port, log_file=log_file, db_file=db_file)
     try:
         m.run()
     except KeyboardInterrupt:
         m.stop()
+    if pid_file:
+        os.unlink(pid_file)
     sys.exit(0)
 
 if __name__ == '__main__':
