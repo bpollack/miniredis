@@ -115,6 +115,10 @@ class MiniRedis(object):
         command = args[0].lower()
         self.dump(client, getattr(self, 'handle_' + command)(client, *args[1:]))
 
+    def rotate(self):
+        self.log_file.close()
+        self.log_file = open(self.log_name, 'w')
+
     def run(self):
         self.halt = False
         server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -286,7 +290,10 @@ class MiniRedis(object):
 def main(args):
     def sigterm(signum, frame):
         m.stop()
+    def sighup(signum, frame):
+        m.rotate()
     signal.signal(signal.SIGTERM, sigterm)
+    signal.signal(signal.SIGHUP, sighup)
 
     host, port, log_file, db_file = '127.0.0.1', 6379, None, None
     opts, args = getopt.getopt(args, 'h:p:d:l:')
