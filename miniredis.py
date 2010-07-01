@@ -182,81 +182,6 @@ class MiniRedis(threading.Thread):
         self.log(client, 'SAVE')
         return True
 
-    def handle_bgrewriteaof(self, client):
-        self.save()
-        self.log(client, 'BGREWRITEAOF')
-        return True
-
-    def unwrap_set(self, client, line):
-        key, length = line.split()
-        data = client.rfile.read(int(length))
-        client.rfile.read(2) # throw out newline
-        return self.handle_set(client, key, data)
-
-    def unwrap_get(self, client, line):
-        key = line.strip()
-        return self.handle_get(client, key)
-
-    def unwrap_del(self, client, line):
-        key = line.strip()
-        return self.handle_del(client, key)
-
-    def unwrap_lpush(self, client, line):
-        key, length = line.split()
-        data = client.rfile.read(int(length))
-        client.rfile.read(2) # throw out newline
-        return self.handle_lpush(client, key, data)
-
-    def unwrap_lrange(self, client, line):
-        key, low, high = line.split()
-        return self.handle_lrange(client, key, low, high)
-
-    def unwrap_rpop(self, client, line):
-        key = line.strip()
-        return self.handle_rpop(client, key)
-
-    def unwrap_keys(self, client, line):
-        pattern = line.strip()
-        return self.handle_keys(client, pattern)
-
-    def unwrap_incr(self, client, line):
-        key = line.strip()
-        return self.handle_incr(client, key)
-
-    def unwrap_incrby(self, client, line):
-        key, by = line.split()
-        return self.handle_incrby(client, key, by)
-
-    def unwrap_flushdb(self, client, line):
-        return self.handle_flushdb(client)
-
-    def unwrap_select(self, client, line):
-        db = line.strip()
-        return self.handle_select(client, db)
-
-    def unwrap_quit(self, client, line):
-        return self.handle_quit(client)
-
-    def unwrap_save(self, client, line):
-        return self.handle_save(client)
-
-    def unwrap_shutdown(self, client, line):
-        return self.handle_shutdown(client)
-
-    def handle_normal(self, client, line):
-        command, _, rest = line.partition(' ')
-        return getattr(self, 'unwrap_' + command.strip().lower())(client, rest)
-
-    def handle_multibulk(self, client, line):
-        items = int(line[1:].strip())
-        args = []
-        for x in xrange(0, items):
-            length = int(client.rfile.readline().strip()[1:])
-            args.append(client.rfile.read(length))
-            client.rfile.read(2) # throw out newline
-        command = args[0].lower()
-        return getattr(self, 'handle_' + command)(client, *args[1:])
-
     def handle(self, client):
         line = client.rfile.readline()
         if not line:
@@ -264,11 +189,14 @@ class MiniRedis(threading.Thread):
             del self.clients[client.socket]
             client.socket.close()
             return
-        if line[0] == '*':
-            o = self.handle_multibulk(client, line)
-        else:
-            o = self.handle_normal(client, line)
-        self.dump(client, o)
+        items = int(line[1:].strip())
+        args = []
+        for x in xrange(0, items):
+            length = int(client.rfile.readline().strip()[1:])
+            args.append(client.rfile.read(length))
+            client.rfile.read(2) # throw out newline
+        command = args[0].lower()
+        self.dump(getattr(self, 'handle_' + command)(client, *args[1:]))
 
     def dump(self, client, o):
         nl = '\r\n'
