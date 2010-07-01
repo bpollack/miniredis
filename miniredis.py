@@ -11,7 +11,6 @@ import pickle
 import select
 import socket
 import sys
-import threading
 
 class RedisError(object):
     def __init__(self, message):
@@ -40,7 +39,7 @@ class RedisClient(object):
         self.db = None
         self.table = None
 
-class MiniRedis(threading.Thread):
+class MiniRedis(object):
     def __init__(self, host='127.0.0.1', port=6379, log_file=None, db_file=None):
         super(MiniRedis, self).__init__()
         self.host = host
@@ -154,7 +153,6 @@ class MiniRedis(threading.Thread):
 
     def stop(self):
         self.halt = True
-        self.join()
 
     # HANDLERS
 
@@ -290,8 +288,7 @@ def main(args):
         elif o == '-d':
             db_file = os.path.abspath(a)
     m = MiniRedis(host=host, port=port, log_file=log_file, db_file=db_file)
-    m.start()
-    m.join()
+    m.run()
 
 if __name__ == '__main__':
     main(sys.argv[1:])
