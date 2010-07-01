@@ -4,11 +4,13 @@
 from __future__ import with_statement
 
 import datetime
+import errno
 import getopt
 import os
 import re
 import pickle
 import select
+import signal
 import socket
 import sys
 
@@ -120,7 +122,12 @@ class MiniRedis(object):
         server.bind((self.host, self.port))
         server.listen(5)
         while not self.halt:
-            readable, _, _ = select.select([server] + self.clients.keys(), [], [], 1.0)
+            try:
+                readable, _, _ = select.select([server] + self.clients.keys(), [], [], 1.0)
+            except select.error, e:
+                if e.args[0] == errno.EINTR:
+                    continue
+                raise
             for sock in readable:
                 if sock == server:
                     (client_socket, address) = server.accept()
@@ -138,7 +145,6 @@ class MiniRedis(object):
             client_socket.close()
         self.clients.clear()
         server.close()
-        server = None
 
     def save(self):
         if self.db_file:
@@ -152,7 +158,9 @@ class MiniRedis(object):
         client.table = self.tables[db]
 
     def stop(self):
-        self.halt = True
+        if not self.halt:
+            self.log(None, 'STOPPING')
+            self.halt = True
 
     # HANDLERS
 
@@ -276,6 +284,10 @@ class MiniRedis(object):
         return self.handle_quit(client)
 
 def main(args):
+    def sigterm(signum, frame):
+        m.stop()
+    signal.signal(signal.SIGTERM, sigterm)
+
     host, port, log_file, db_file = '127.0.0.1', 6379, None, None
     opts, args = getopt.getopt(args, 'h:p:d:l:')
     for o, a in opts:
@@ -288,7 +300,11 @@ def main(args):
         elif o == '-d':
             db_file = os.path.abspath(a)
     m = MiniRedis(host=host, port=port, log_file=log_file, db_file=db_file)
-    m.run()
+    try:
+        m.run()
+    except KeyboardInterrupt:
+        m.stop()
+    sys.exit(0)
 
 if __name__ == '__main__':
     main(sys.argv[1:])
