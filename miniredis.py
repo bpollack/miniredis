@@ -87,7 +87,10 @@ class MiniRedis(threading.Thread):
 
     def log(self, client, s):
         if self.log_file:
-            who = '%s:%s' % client.socket.getpeername() if client else 'SERVER'
+            try:
+                who = '%s:%s' % client.socket.getpeername() if client else 'SERVER'
+            except:
+                who = '<CLOSED>'
             self.log_file.write('%s - %s: %s\n' % (datetime.datetime.now(), who, s))
             self.log_file.flush()
 
