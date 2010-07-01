@@ -265,11 +265,9 @@ def main(args):
             logging = True
         elif o == '-d':
             db_file = os.path.abspath(a)
-    print 'Launching MiniRedis on %s:%s' % (host, port)
     m = MiniRedis(host=host, port=port, logging=logging, db_file=db_file)
     m.start()
     m.join()
-    print 'Stopped'
 
 if __name__ == '__main__':
     main(sys.argv[1:])
