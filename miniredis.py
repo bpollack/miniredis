@@ -267,7 +267,7 @@ class MiniRedis(threading.Thread):
     def handle_shutdown(self, client):
         self.log(client, 'SHUTDOWN')
         self.halt = True
-        return True
+        return self.handle_quit(client)
 
 def main(args):
     host, port, log_file, db_file = '127.0.0.1', 6379, None, None
