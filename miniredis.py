@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 # Copyright (C) 2010 Benjamin Pollack.  All rights reserved.
 
+from __future__ import with_statement
+
 import datetime
 import getopt
 import os
