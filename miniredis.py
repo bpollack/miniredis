@@ -178,7 +178,12 @@ class MiniRedis(threading.Thread):
         return True
 
     def handle_save(self, client):
-        self.save()
+        try:
+            if not os.fork():
+                self.save()
+                sys.exit(0)
+        except OSError:
+            self.save()
         self.log(client, 'SAVE')
         return True
 
