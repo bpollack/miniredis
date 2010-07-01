@@ -252,6 +252,14 @@ class MiniRedis(threading.Thread):
         self.log(client, 'SET %s -> %s' % (key, data))
         return True
 
+    def handle_setnx(self, client, key, data):
+        if key in client.table:
+            self.log(client, 'SETNX %s -> %s FAILED' % (key, data))
+            return 0
+        client.table[key] = data
+        self.log(client, 'SETNX %s -> %s' % (key, data))
+        return 1
+
     def handle_shutdown(self, client):
         self.log(client, 'SHUTDOWN')
         self.halt = True
