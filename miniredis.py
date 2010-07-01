@@ -45,7 +45,12 @@ class MiniRedis(threading.Thread):
         super(MiniRedis, self).__init__()
         self.host = host
         self.port = port
-        self.log_file = log_file
+        if log_file:
+            self.log_name = log_file
+            self.log_file = open(self.log_name, 'w')
+        else:
+            self.log_name = None
+            self.log_file = sys.stdout
         self.halt = True
 
         self.clients = {}
@@ -86,13 +91,12 @@ class MiniRedis(threading.Thread):
                 self.log(None, 'loaded database from file "%s"' % self.db_file)
 
     def log(self, client, s):
-        if self.log_file:
-            try:
-                who = '%s:%s' % client.socket.getpeername() if client else 'SERVER'
-            except:
-                who = '<CLOSED>'
-            self.log_file.write('%s - %s: %s\n' % (datetime.datetime.now(), who, s))
-            self.log_file.flush()
+        try:
+            who = '%s:%s' % client.socket.getpeername() if client else 'SERVER'
+        except:
+            who = '<CLOSED>'
+        self.log_file.write('%s - %s: %s\n' % (datetime.datetime.now(), who, s))
+        self.log_file.flush()
 
     def handle(self, client):
         line = client.rfile.readline()
@@ -275,14 +279,14 @@ class MiniRedis(threading.Thread):
 
 def main(args):
     host, port, log_file, db_file = '127.0.0.1', 6379, None, None
-    opts, args = getopt.getopt(args, 'h:p:d:l')
+    opts, args = getopt.getopt(args, 'h:p:d:l:')
     for o, a in opts:
         if o == '-h':
             host = a
         elif o == '-p':
             port = int(a)
         elif o == '-l':
-            log_file = sys.stdout
+            log_file = os.path.abspath(a)
         elif o == '-d':
             db_file = os.path.abspath(a)
     m = MiniRedis(host=host, port=port, log_file=log_file, db_file=db_file)
