@@ -137,7 +137,6 @@ class MiniRedis(threading.Thread):
         if self.db_file:
             with open(self.db_file, 'wb') as f:
                 pickle.dump(self.tables, f, pickle.HIGHEST_PROTOCOL)
-                self.log(None, 'saved database to "%s"' % self.db_file)
 
     def select(self, client, db):
         if db not in self.tables:
@@ -237,7 +236,12 @@ class MiniRedis(threading.Thread):
         return False
 
     def handle_save(self, client):
-        self.save()
+        try:
+            if not os.fork():
+                self.save()
+                sys.exit(0)
+        except OSError:
+            self.save()
         self.log(client, 'SAVE')
         return True
 
