@@ -164,6 +164,7 @@ class MiniRedis(object):
     def stop(self):
         if not self.halt:
             self.log(None, 'STOPPING')
+            self.save()
             self.halt = True
 
     # HANDLERS
