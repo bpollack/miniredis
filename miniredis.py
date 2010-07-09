@@ -14,6 +14,8 @@ import signal
 import socket
 import sys
 
+from collections import deque
+
 class RedisError(object):
     def __init__(self, message):
         self.message = message
@@ -189,7 +191,7 @@ class MiniRedis(object):
 
     def handle_get(self, client, key):
         data = client.table.get(key, None)
-        if isinstance(data, list):
+        if isinstance(data, deque):
             return BAD_VALUE
         if data != None:
             data = str(data)
@@ -217,10 +219,10 @@ class MiniRedis(object):
 
     def handle_lpush(self, client, key, data):
         if key not in client.table:
-            client.table[key] = []
-        elif not isinstance(client.table[key], list):
+            client.table[key] = deque()
+        elif not isinstance(client.table[key], deque):
             return BAD_VALUE
-        client.table[key].insert(0, data)
+        client.table[key].appendleft(data)
         self.log(client, 'LPUSH %s %s' % (key, data))
         return True
 
@@ -230,21 +232,22 @@ class MiniRedis(object):
             high = None
         if key not in client.table:
             return EMPTY_LIST
-        if not isinstance(client.table[key], list):
+        if not isinstance(client.table[key], deque):
             return BAD_VALUE
-        self.log(client, 'LRANGE %s %s %s -> %s' % (key, low, high, client.table[key][low:high]))
-        return client.table[key][low:high]
+        l = list(client.table[key])[low:high]
+        self.log(client, 'LRANGE %s %s %s -> %s' % (key, low, high, l))
+        return l
 
     def handle_rpop(self, client, key):
         if key not in client.table:
             return EMPTY_SCALAR
-        if not isinstance(client.table[key], list):
+        if not isinstance(client.table[key], deque):
             return BAD_VALUE
         if len(client.table[key]) > 0:
             data = client.table[key].pop()
         else:
             data = EMPTY_SCALAR
-        self.log(client, 'LPOP %s -> %s' % (key, data))
+        self.log(client, 'RPOP %s -> %s' % (key, data))
         return data
 
     def handle_quit(self, client):
