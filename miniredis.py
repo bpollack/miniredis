@@ -217,6 +217,25 @@ class MiniRedis(object):
         self.log(client, 'KEYS %s' % pattern)
         return ' '.join(k for k in client.table.keys() if r.search(k))
 
+    def handle_llen(self, client, key):
+        if key not in client.table:
+            return 0
+        if not isinstance(client.table[key], deque):
+            return BAD_VALUE
+        return len(client.table[key])
+
+    def handle_lpop(self, client, key):
+        if key not in client.table:
+            return EMPTY_SCALAR
+        if not isinstance(client.table[key], deque):
+            return BAD_VALUE
+        if len(client.table[key]) > 0:
+            data = client.table[key].popleft()
+        else:
+            data = EMPTY_SCALAR
+        self.log(client, 'LPOP %s -> %s' % (key, data))
+        return data
+
     def handle_lpush(self, client, key, data):
         if key not in client.table:
             client.table[key] = deque()
@@ -249,6 +268,15 @@ class MiniRedis(object):
             data = EMPTY_SCALAR
         self.log(client, 'RPOP %s -> %s' % (key, data))
         return data
+
+    def handle_rpush(self, client, key, data):
+        if key not in client.table:
+            client.table[key] = deque()
+        elif not isinstance(client.table[key], deque):
+            return BAD_VALUE
+        client.table[key].append(data)
+        self.log(client, 'RPUSH %s %s' % (key, data))
+        return True
 
     def handle_quit(self, client):
         client.socket.shutdown(socket.SHUT_RDWR)
