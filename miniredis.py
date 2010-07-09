@@ -255,11 +255,11 @@ class MiniRedis(object):
         return False
 
     def handle_save(self, client):
-        try:
+        if hasattr(os, 'fork'):
             if not os.fork():
                 self.save()
                 sys.exit(0)
-        except OSError:
+        else:
             self.save()
         self.log(client, 'SAVE')
         return True
@@ -289,12 +289,13 @@ class MiniRedis(object):
         return self.handle_quit(client)
 
 def main(args):
-    def sigterm(signum, frame):
-        m.stop()
-    def sighup(signum, frame):
-        m.rotate()
-    signal.signal(signal.SIGTERM, sigterm)
-    signal.signal(signal.SIGHUP, sighup)
+    if os.name == 'posix':
+        def sigterm(signum, frame):
+            m.stop()
+        def sighup(signum, frame):
+            m.rotate()
+        signal.signal(signal.SIGTERM, sigterm)
+        signal.signal(signal.SIGHUP, sighup)
 
     host, port, log_file, db_file = '127.0.0.1', 6379, None, None
     opts, args = getopt.getopt(args, 'h:p:d:l:f:')
