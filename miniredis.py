@@ -293,6 +293,10 @@ class MiniRedis(object):
         self.log(client, 'LRANGE %s %s %s -> %s' % (key, low, high, l))
         return l
 
+    def handle_ping(self, client):
+        self.log(client, 'PING -> PONG')
+        return RedisMessage('PONG')
+
     def handle_rpop(self, client, key):
         if key not in client.table:
             return EMPTY_SCALAR
