@@ -342,6 +342,7 @@ class MiniRedis(object):
     def handle_shutdown(self, client):
         self.log(client, 'SHUTDOWN')
         self.halt = True
+        self.save()
         return self.handle_quit(client)
 
 def main(args):
