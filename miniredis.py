@@ -198,6 +198,12 @@ class MiniRedis(object):
         self.log(client, 'BGSAVE')
         return RedisMessage('Background saving started')
 
+    def handle_decr(self, client, key):
+        return self.handle_decrby(self, client, key, 1)
+
+    def handle_decrby(self, client, key, by):
+        return self.handle_incrby(self, client, key, -by)
+
     def handle_del(self, client, key):
         self.log(client, 'DEL %s' % key)
         if key not in client.table:
