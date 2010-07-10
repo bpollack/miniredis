@@ -318,6 +318,22 @@ class MiniRedis(object):
         self.log(client, 'RPUSH %s %s' % (key, data))
         return True
 
+    def handle_type(self, client, key):
+        if key not in client.table:
+            return RedisMessage('none')
+
+        data = client.table[key]
+        if isinstance(data, deque):
+            return RedisMessage('list')
+        elif isinstance(data, set):
+            return RedisMessage('set')
+        elif isinstance(data, dict):
+            return RedisMessage('hash')
+        elif isinstance(data, str):
+            return RedisMessage('string')
+        else:
+            return RedisError('unknown data type')
+
     def handle_quit(self, client):
         client.socket.shutdown(socket.SHUT_RDWR)
         client.socket.close()
