@@ -13,6 +13,7 @@ import select
 import signal
 import socket
 import sys
+import time
 
 from collections import deque
 
@@ -73,6 +74,7 @@ class MiniRedis(object):
         self.clients = {}
         self.tables = {}
         self.db_file = db_file
+        self.lastsave = int(time.time())
 
         self.load()
 
@@ -170,6 +172,7 @@ class MiniRedis(object):
         if self.db_file:
             with open(self.db_file, 'wb') as f:
                 pickle.dump(self.tables, f, pickle.HIGHEST_PROTOCOL)
+            self.lastsave = int(time.time())
 
     def select(self, client, db):
         if db not in self.tables:
@@ -240,6 +243,9 @@ class MiniRedis(object):
         r = re.compile(pattern.replace('*', '.*'))
         self.log(client, 'KEYS %s' % pattern)
         return ' '.join(k for k in client.table.keys() if r.search(k))
+
+    def handle_lastsave(self, client):
+        return self.lastsave
 
     def handle_llen(self, client, key):
         if key not in client.table:
