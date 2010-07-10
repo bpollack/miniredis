@@ -16,19 +16,33 @@ import sys
 
 from collections import deque
 
-class RedisError(object):
-    def __init__(self, message):
-        self.message = message
-
-    def __repr__(self):
-        return '<RedisError(%s)>' % self.message
-
 class RedisConstant(object):
     def __init__(self, type):
         self.type = type
 
     def __repr__(self):
         return '<RedisConstant(%s)>' % self.type
+
+class RedisMessage(object):
+    def __init__(self, message):
+        self.message = message
+
+    def __str__(self):
+        return '+%s' % self.message
+
+    def __repr__(self):
+        return '<RedisMessage(%s)>' % self.message
+
+class RedisError(RedisMessage):
+    def __init__(self, message):
+        self.message = message
+
+    def __str__(self):
+        return '-ERR %s' % self.message
+
+    def __repr__(self):
+        return '<RedisError(%s)>' % self.message
+
 
 EMPTY_SCALAR = RedisConstant('EmptyScalar')
 EMPTY_LIST = RedisConstant('EmptyList')
@@ -81,8 +95,8 @@ class MiniRedis(object):
             client.wfile.write('*' + str(len(o)) + nl)
             for val in o:
                 self.dump(client, str(val))
-        elif isinstance(o, RedisError):
-            client.wfile.write('-ERR %s\r\n' % o.message)
+        elif isinstance(o, RedisMessage):
+            client.wfile.write('%s\r\n' % o)
         else:
             client.wfile.write('return type not yet implemented\r\n')
         client.wfile.flush()
@@ -170,6 +184,16 @@ class MiniRedis(object):
             self.halt = True
 
     # HANDLERS
+
+    def handle_bgsave(self, client):
+        if hasattr(os, 'fork'):
+            if not os.fork():
+                self.save()
+                sys.exit(0)
+        else:
+            self.save()
+        self.log(client, 'BGSAVE')
+        return RedisMessage('Background saving started')
 
     def handle_del(self, client, key):
         self.log(client, 'DEL %s' % key)
@@ -286,12 +310,7 @@ class MiniRedis(object):
         return False
 
     def handle_save(self, client):
-        if hasattr(os, 'fork'):
-            if not os.fork():
-                self.save()
-                sys.exit(0)
-        else:
-            self.save()
+        self.save()
         self.log(client, 'SAVE')
         return True
 
